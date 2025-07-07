@@ -10,7 +10,7 @@ class AmadeusService:
     def __init__(self):
         self.client_id = settings.amadeus_api_key
         self.client_secret = settings.amadeus_api_secret
-        self.base_url = settings.amadeus_api_url
+        self.base_url = settings.amadeus_base_url
         self.token = None
         self.token_expiry = None
 

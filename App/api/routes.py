@@ -3,15 +3,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Optional, Dict, Any
 from datetime import date
 import httpx
+from pydantic import BaseModel
+from typing import Dict, Any
+import json
+import groq
 
 from App.services.amadeus_service import AmadeusService
-from App.model.schemas import FlightOffer, FlightSearchParams
+from App.model.schemas import FlightOffer, FlightSearchParams, TripInput
 from App.core.config import settings
 
-app = FastAPI(
-    title="Flight Search API",
-    description="API for searching flights using Amadeus API",
-    version="1.0.0")
+app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
@@ -23,7 +24,6 @@ app.add_middleware(
 
 router = APIRouter()
 amadeus_service = AmadeusService()
-
 
 @router.get("/")
 def read_root():
@@ -246,5 +246,53 @@ def transform_flight_offer(raw_offer: Dict[str, Any]) -> Dict[str, Any]:
         "validating_airline_codes": raw_offer.get("validatingAirlineCodes", []),
         "traveler_pricings": raw_offer.get("travelerPricings", [])
     }
+
+# Add this import at the top
+from groq import Groq
+
+# Initialize Groq client after your settings import
+groq_client = Groq(api_key=settings.groq_api_key)
+
+# ... your other code ...
+
+@router.post("/plan-trip")
+async def plan_trip(trip_input: TripInput):
+    try:
+        # Construct the prompt
+        prompt = f"""
+        Create a detailed trip plan based on the following inputs:
+        - Duration: {trip_input.duration_days} days
+        - Budget: {trip_input.budget}
+        - Destination Preference: {trip_input.vacation_place}
+        - Transportation: {trip_input.transportation}
+        - Comfort Level: {trip_input.comfort_level}
+        
+        Additional data from sources:
+        {json.dumps(trip_input.source_data, indent=2)}
+        
+        Provide a day-by-day itinerary including activities, transportation details, 
+        accommodation suggestions, and cost estimates. Make sure it fits the budget 
+        and comfort level specified.
+        - At the end, say something like the price may vary 
+        - PRIORITISE the tourism places from the given data.
+        - If there's more place to discover, ALSO INCLUDE THOSE. BUT ADD HOW TO GET THERE FROM THE DESTINATION.
+        """
+        
+        # Get AI response using Groq client
+        chat_completion = groq_client.chat.completions.create(
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            model="llama3-70b-8192",  # Updated model name
+            temperature=0.3
+        )
+        
+        return {"trip_plan": chat_completion.choices[0].message.content}
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 app.include_router(router)

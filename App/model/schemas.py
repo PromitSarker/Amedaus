@@ -2,6 +2,14 @@ from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 from datetime import date
 
+class TripInput(BaseModel):
+    duration_days: str
+    budget: str
+    vacation_place: str
+    transportation: str
+    comfort_level: str
+    source_data: Dict[str, Any]
+
 class FlightSearchParams(BaseModel):
     origin: str
     destination: str
